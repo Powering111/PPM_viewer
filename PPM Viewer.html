@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>PPM viewer</title>
+        
+        <style type="text/css">
+            body,div{
+                text-align:center;
+            }
+            #title {
+                font-size: 30px;
+                margin-bottom:10px;
+            }
+            .error {
+                color:red;
+            }
+            #imageCanvas{
+                border:4px solid black;
+                display:none;
+            }
+            button{
+                background-color:white;
+                outline:none;
+                border:2px solid antiquewhite;
+                padding:10px 20px;
+                border-radius:5px;
+                cursor:pointer;
+                user-select:none;
+                transition:background-color 0.2s;
+            }
+            button:hover{
+                background-color:rgb(255, 250, 243);
+            }
+            button:active{
+                background-color:rgb(204, 204, 204);
+            }
+        </style>
+    </head>
+    <body>
+        <h1 id="title">PPM Viewer</h1>
+        <!-- <div id="input_box">
+            <label id="file_input_label" for="file_input">Input PPM file</label>
+            <input type="file" id="file_input" accept=".ppm" onchange="load()">
+        </div> -->
+        <div>
+            <button type="button" id="file_input_btn" onclick="selectFile()">Input PPM file</span>
+            <button type="button" id="reloadBtn" onclick="load()">Reload image</button>
+        </div>
+        <div id="info"></div>
+        <div><canvas id="imageCanvas" width="100" height="100"></canvas></div>
+    
+        <script type="text/javascript">
+            const file_input_btn_elem = document.getElementById("file_input_btn");
+            const reloadButton = document.getElementById("reloadBtn");
+            const canvas = document.getElementById("imageCanvas");
+            const ctx = canvas.getContext("2d");
+
+            const info_elem = document.getElementById("info");
+            
+            let fileHandle;
+            async function selectFile(){
+                try{
+                    [fileHandle] = await window.showOpenFilePicker(options={types:[{description:"PPM file",accept:{'image/ppm':[".ppm"]}}]});
+                    load();
+                }
+                catch(e){
+
+                }
+            }
+
+            async function load() {
+                if(!fileHandle){
+                    showError('No file selected.');
+                    return;
+                }
+                if (fileHandle.name.substr(fileHandle.name.length-4) != ".ppm") {
+                    showError('.ppm file has to be selected.');
+                    return;
+                }
+
+                const file = await fileHandle.getFile();
+                const contents = await file.text();
+                processPPM(contents);
+            }
+
+            function processPPM(fileContents) {
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                info_elem.innerHTML = '';
+
+                fileContents = fileContents.replace(/^\s+/, '').replace(/\s+$/, '');
+                const data = fileContents.split(/\s+/);
+
+                if (fileContents.substr(0, 2) != 'P3' || data[0] != 'P3') {
+                    showError('File is not a PPM');
+                    return;
+                }
+
+                const width = data[1];
+                const height = data[2];
+                const maxColors = data[3];
+
+                if (maxColors != 255) {
+                    showError('MaxColors is not 255.');
+                    return;
+                }
+
+                if (data.length != 3 * width * height + 4) {
+                    showError(`Pixel data count error : ${data.length - 4} / ${3 * width * height} (${width}*${height})`);
+                    return;
+                }
+
+                canvas.width=width; 
+                canvas.height=height; 
+
+                const img = ctx.getImageData(0,0,width, height);
+                let pixels = img.data;
+
+                let imageIndex = 0;
+                for (let i = 4; i < data.length; i += 3) {
+                    pixels[imageIndex++] = data[i]; // r
+                    pixels[imageIndex++] = data[i+1]; // g
+                    pixels[imageIndex++] = data[i+2]; // b
+                    pixels[imageIndex++] = 255; // a
+                }
+                ctx.putImageData(img, 0, 0);
+                canvas.style.display="inline-block";
+                info_elem.innerText = `File : ${fileHandle.name} (${width}x${height}) `;
+            }
+
+            function showError(msg) {
+                info_elem.innerHTML = `<div class="error">Error: ${msg}</div>`;
+                canvas.style.display="none";
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        </script>
+    </body>
+</html>
